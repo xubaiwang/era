@@ -13,7 +13,7 @@ import {
 
 export enum Kind {
   Clock,
-  Counter,
+  Stopwatch,
 }
 
 // If the result of subtraction is lesser than 0, then returns 0, otherwise
