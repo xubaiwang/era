@@ -8,6 +8,9 @@ switch (Deno.args[0]) {
   case "-c":
     await run(Kind.Clock);
     break;
+  case "-t":
+    await run(Kind.Timeout);
+    break;
   default:
     console.error(`unknown option ${Deno.args[0]}, expected -c or -s`);
 }

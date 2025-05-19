@@ -3,19 +3,20 @@
  */
 
 import { saturatingSub } from "./utils.ts";
-import { getConfigOrDefault } from "./config.ts";
+import { Config, getConfigOrDefault } from "./config.ts";
 import {
-  callRain,
-  concatNums,
-  generateStringArray,
-  makeTime,
+  concatDigits,
+  generateTimeDisplayRows,
   makeUTCTime,
+  timeToDigits,
+  updateRainRows,
 } from "./time.ts";
 import { GOTO_ORIGIN, initTUI, readKey, restoreTUI } from "./tui.ts";
 
 export enum Kind {
   Clock,
   Stopwatch,
+  Timeout,
 }
 
 const TIME_WIDTH = 39;
@@ -23,85 +24,122 @@ const TIME_HEIGHT = 5;
 
 /** 运行程序。 */
 export async function run(kind: Kind) {
-  // 起始时间点
-  const start = new Date().getTime();
-  // 加载现有配置或新建配置
+  /* 配置 */
   const config = await getConfigOrDefault();
 
-  // 时间数字渲染起始点
-  const timerPoint = (rows: number, columns: number) => {
-    const startX = Math.floor(saturatingSub(columns, TIME_WIDTH) / 2) + 1;
-    const startY = Math.floor(saturatingSub(rows, TIME_HEIGHT) / 2) + 1;
+  /* 环境 */
+  const origin = new Date().getTime(); // 起始时间点
 
-    return { startX, startY };
-  };
+  /* 状态 */
+  const size = Deno.consoleSize(); // 命令行
+  const position = calculateTimeDisplayPosition(size); // 时间显示位置
+  const rainRows: string[] = []; // 下雨状态
+  const state = { size, position, rainRows, notified: false };
 
-  let { columns, rows } = Deno.consoleSize();
-  let { startX, startY } = timerPoint(rows, columns);
-
-  let rain: string[] = [];
-
-  // 渲染函数
-  const render = () => {
-    const txt = (() => {
-      // 分时钟和计时器
-      if (kind === Kind.Clock) {
-        return generateStringArray(concatNums(makeTime(new Date())));
-      } else {
-        const now = new Date().getTime();
-        const diff = new Date(now - start);
-        return generateStringArray(concatNums(makeUTCTime(diff)));
-      }
-    })();
-
-    rain = callRain(rain, columns, rows, config);
-
-    // 从原点绘制雨滴
-    Deno.stdout.writeSync(GOTO_ORIGIN); //Go to home position
-    for (let i = 1; i < rows; i++) {
-      if (i >= startY && i < startY + TIME_HEIGHT) {
-        const s = (" ".repeat(saturatingSub(startX, 1)) + txt[i - startY])
-          .padEnd(columns, " ")
-          .slice(0, columns);
-        console.log("%c" + s, "color: " + config.timecolor);
-      } else if (i < rain.length) {
-        const s = rain[i]
-          .padEnd(columns, " ")
-          .slice(0, columns);
-        console.log("%c" + s, "color: " + config.raincolor);
-      } else {
-        console.log();
-      }
-    }
-  };
-
+  // 初始化 TUI
   initTUI();
 
   // 自动适应窗口大小
-  if (Deno.build.os !== "windows") {
-    Deno.addSignalListener("SIGWINCH", () => {
-      const old_rows = rows;
-
-      ({ columns, rows } = Deno.consoleSize());
-      ({ startX, startY } = timerPoint(rows, columns));
-
-      // Fall new rain to keep previous raindrops surrounded the timer text.
-      const n = Math.floor(saturatingSub(rows, old_rows) / 2);
-      [...Array(n)].forEach((_) => {
-        rain = callRain(rain, columns, rows, config);
-      });
-
-      // 大小变更时重新绘制
-      render();
-    });
-  }
+  listenAutoResize(state, config);
 
   // 定时重新绘制
-  const intervalRainID = setInterval(render, config.interval);
+  const rainIntervalId = setInterval(
+    () => render(kind, origin, state, config),
+    config.interval,
+  );
 
   // 读取任意按键，清理退出
   await readKey();
-  clearInterval(intervalRainID);
+  clearInterval(rainIntervalId);
   restoreTUI();
   return;
+}
+
+type State = {
+  size: ReturnType<typeof Deno.consoleSize>;
+  position: { x: number; y: number };
+  rainRows: string[];
+  notified: boolean;
+};
+
+/**
+ * 计算时间显示区位置
+ */
+function calculateTimeDisplayPosition(
+  { rows, columns }: ReturnType<typeof Deno.consoleSize>,
+) {
+  const x = Math.floor(saturatingSub(columns, TIME_WIDTH) / 2) + 1;
+  const y = Math.floor(saturatingSub(rows, TIME_HEIGHT) / 2) + 1;
+
+  return { x, y };
+}
+
+function render(
+  kind: Kind,
+  origin: number,
+  state: State,
+  config: Config,
+) {
+  const txt = (() => {
+    // 分时钟和计时器
+    switch (kind) {
+      case Kind.Clock:
+        return generateTimeDisplayRows(concatDigits(timeToDigits(new Date())));
+      case Kind.Stopwatch: {
+        const now = new Date().getTime();
+        const diff = new Date(now - origin);
+        return generateTimeDisplayRows(concatDigits(makeUTCTime(diff)));
+      }
+      case Kind.Timeout: {
+        // XXX: should not read here
+        const minutes = parseInt(Deno.args[1]);
+        const now = new Date().getTime();
+        const target = origin + minutes * 60 * 1000;
+        const diff = saturatingSub(target, now);
+        if (diff == 0 && !state.notified) {
+          new Deno.Command("notify-send", { args: ["时迄"] }).spawn();
+          state.notified = true;
+        }
+        return generateTimeDisplayRows(
+          concatDigits(makeUTCTime(new Date(diff))),
+        );
+      }
+    }
+  })();
+
+  updateRainRows(state.rainRows, state.size, config);
+
+  // 从原点绘制雨滴
+  Deno.stdout.writeSync(GOTO_ORIGIN);
+  for (let i = 1; i < state.size.rows; i++) {
+    // 排除时间显示区域
+    if (i >= state.position.y && i < state.position.y + TIME_HEIGHT) {
+      const s = (" ".repeat(saturatingSub(state.position.x, 1)) +
+        txt[i - state.position.y])
+        .padEnd(state.size.columns, " ")
+        .slice(0, state.size.columns);
+      console.log("%c" + s, "color: " + config.timecolor);
+    } else if (i < state.rainRows.length) {
+      const s = state.rainRows[i]
+        .padEnd(state.size.columns, " ")
+        .slice(0, state.size.columns);
+      console.log("%c" + s, "color: " + config.raincolor);
+    } else {
+      console.log();
+    }
+  }
+}
+
+function listenAutoResize(
+  state: State,
+  config: Config,
+) {
+  if (Deno.build.os !== "windows") {
+    Deno.addSignalListener("SIGWINCH", () => {
+      const size = Deno.consoleSize();
+      state.size = size;
+      state.position = calculateTimeDisplayPosition(size);
+      updateRainRows(state.rainRows, size, config);
+    });
+  }
 }

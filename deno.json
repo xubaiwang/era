@@ -1,6 +1,5 @@
 {
   "tasks": {
-    "start": "deno run --allow-read --allow-env src/main.ts"
-  },
-  "imports": {}
+    "start": "deno run --allow-read --allow-env --allow-run=notify-send src/main.ts"
+  }
 }

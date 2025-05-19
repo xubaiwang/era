@@ -9,19 +9,23 @@ const ATOM1 = "█";
 const ATOM2 = "■";
 
 /**
- * 生成数字列表。
+ * 生成时间显示区各行。
+ * @param glyphsData - 显示区字符表示
  */
-export function generateStringArray(num: number[][]): string[] {
+export function generateTimeDisplayRows(glyphsData: number[][]): string[] {
   const result: string[] = [];
-  num.forEach((nums) => {
+  glyphsData.forEach((nums) => {
     let line = "";
     nums.forEach((num) => {
-      if (num == 1) {
-        line = line + ATOM1;
-      } else if (num == 2) {
-        line = line + ATOM2;
-      } else {
-        line = line + " ";
+      switch (num) {
+        case 1:
+          line += ATOM1;
+          break;
+        case 2:
+          line += ATOM2;
+          break;
+        default:
+          line += " ";
       }
     });
     result.push(line);
@@ -32,7 +36,7 @@ export function generateStringArray(num: number[][]): string[] {
 /**
  * 拼接数字（时、分、秒）。
  */
-export function concatNums([
+export function concatDigits([
   num1,
   num2,
   num3,
@@ -62,7 +66,7 @@ export function concatNums([
 /**
  * 时间转为位点阵。
  */
-export function makeTime(d: Date): number[][][] {
+export function timeToDigits(d: Date): number[][][] {
   const hour = d.getHours();
   const min = d.getMinutes();
   const sec = d.getSeconds();
@@ -74,7 +78,7 @@ export function makeTime(d: Date): number[][][] {
   const fifth = Math.floor(sec / 10);
   const sixth = sec - fifth * 10;
   return [first, second, third, fourth, fifth, sixth].map((item) =>
-    numToArrays(item)
+    digitToGlyph(item)
   );
 }
 
@@ -89,14 +93,18 @@ export function makeUTCTime(d: Date): number[][][] {
   const fifth = Math.floor(sec / 10);
   const sixth = sec - fifth * 10;
   return [first, second, third, fourth, fifth, sixth].map((item) =>
-    numToArrays(item)
+    digitToGlyph(item)
   );
+}
+
+export function makeTimeout(d: Date): number[][][] {
+  return [];
 }
 
 /**
  * 位转换点阵。
  */
-function numToArrays(num: number): number[][] {
+function digitToGlyph(num: number): number[][] {
   switch (num) {
     case 1:
       return nums.ONE;
@@ -122,23 +130,23 @@ function numToArrays(num: number): number[][] {
 }
 
 /**
- * 调用下雨。
+ * 更新下雨状态。
+ * @param rainRows - 原处更新雨滴数组
  */
-export function callRain(
-  rain: string[],
-  column: number,
-  row: number,
+export function updateRainRows(
+  rainRows: string[],
+  { rows, columns }: ReturnType<typeof Deno.consoleSize>,
   config: Config,
-): string[] {
-  if (rain.length >= row) {
-    rain = rain.slice(0, row);
+) {
+  // 消除超出雨滴
+  rainRows.splice(rows);
+  // 在顶部新行内随机创建雨滴
+  let newRainRow = "";
+  for (let i = 0; i < columns; i++) {
+    newRainRow += makeDrop(getRandomInt(config.frequency), config);
   }
-  let newRain = "";
-  for (let i = 0; i < column; i++) {
-    newRain = newRain + makeDrop(getRandomInt(config.frequency), config);
-  }
-  rain = [newRain, ...rain];
-  return rain;
+  // 拼入新行
+  rainRows.unshift(newRainRow);
 }
 
 /**
