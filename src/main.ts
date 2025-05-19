@@ -1,9 +1,13 @@
 import { Kind, run } from "./run.ts";
 
-// read arguments to decide run type
-const arg = Deno.args[0];
-if (arg === "-s") {
-  await run(Kind.Stopwatch);
-} else {
-  await run(Kind.Clock);
+switch (Deno.args[0]) {
+  case "-s":
+    await run(Kind.Stopwatch);
+    break;
+  case undefined:
+  case "-c":
+    await run(Kind.Clock);
+    break;
+  default:
+    console.error(`unknown option ${Deno.args[0]}, expected -c or -s`);
 }
