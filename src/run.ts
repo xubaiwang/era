@@ -2,6 +2,7 @@
  * @file 主要界面逻辑定义。
  */
 
+import { saturatingSub } from "./utils.ts";
 import { getConfigOrDefault } from "./config.ts";
 import {
   callRain,
@@ -10,30 +11,15 @@ import {
   makeTime,
   makeUTCTime,
 } from "./time.ts";
+import { GOTO_ORIGIN, initTUI, readKey, restoreTUI } from "./tui.ts";
 
 export enum Kind {
   Clock,
   Stopwatch,
 }
 
-// If the result of subtraction is lesser than 0, then returns 0, otherwise
-// return the result.
-function saturatingSub(lhs: number, rhs: number): number {
-  if (lhs - rhs < 0) {
-    return 0;
-  } else {
-    return lhs - rhs;
-  }
-}
-
 const TIME_WIDTH = 39;
 const TIME_HEIGHT = 5;
-
-const NEW_SCREEN = new TextEncoder().encode("\x1b[?1049h");
-const HIDE_CURSOR = new TextEncoder().encode("\x1b[?25l");
-const SHOW_CURSOR = new TextEncoder().encode("\x1b[?25h");
-const RESTORE_SCREEN = new TextEncoder().encode("\x1b[?1049l");
-const GOTO_ORIGIN = new TextEncoder().encode("\x1b[1;1f");
 
 /** 运行程序。 */
 export async function run(kind: Kind) {
@@ -89,10 +75,7 @@ export async function run(kind: Kind) {
     }
   };
 
-  // 进入副屏
-  Deno.stdin.setRaw(true); //Enter raw mode
-  Deno.stdout.writeSync(NEW_SCREEN); //Enter new screen
-  Deno.stdout.writeSync(HIDE_CURSOR); //Hide cursor
+  initTUI();
 
   // 自动适应窗口大小
   if (Deno.build.os !== "windows") {
@@ -117,11 +100,8 @@ export async function run(kind: Kind) {
   const intervalRainID = setInterval(render, config.interval);
 
   // 读取任意按键，清理退出
-  const c = new Uint8Array(1);
-  await Deno.stdin.read(c);
+  await readKey();
   clearInterval(intervalRainID);
-  Deno.stdout.writeSync(SHOW_CURSOR); //Show cursor
-  Deno.stdout.writeSync(RESTORE_SCREEN); //Restore main screen
-  Deno.stdin.setRaw(false); //Exit raw mode
+  restoreTUI();
   return;
 }
