@@ -2,7 +2,7 @@
  * @file 主要界面逻辑定义。
  */
 
-import { CONFIG_PATH, configExample, getConfig, makeConfig } from "./config.ts";
+import { getConfigOrDefault } from "./config.ts";
 import {
   callRain,
   concatNums,
@@ -40,10 +40,7 @@ export async function run(kind: Kind) {
   // 起始时间点
   const start = new Date().getTime();
   // 加载现有配置或新建配置
-  const config = await getConfig(CONFIG_PATH).catch(async (_) => {
-    await makeConfig();
-    return configExample;
-  });
+  const config = await getConfigOrDefault();
 
   // 时间数字渲染起始点
   const timerPoint = (rows: number, columns: number) => {
