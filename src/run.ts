@@ -2,18 +2,13 @@
  * @file 主要界面逻辑定义。
  */
 
+import { CONFIG_PATH, configExample, getConfig, makeConfig } from "./config.ts";
 import {
-  config_example,
-  CONFIG_PATH,
-  get_config,
-  make_config,
-} from "./config.ts";
-import {
-  call_rain,
-  concat_nums,
-  generate_string_array,
-  make_time,
-  make_UTCtime,
+  callRain,
+  concatNums,
+  generateStringArray,
+  makeTime,
+  makeUTCTime,
 } from "./time.ts";
 
 export enum Kind {
@@ -23,13 +18,13 @@ export enum Kind {
 
 // If the result of subtraction is lesser than 0, then returns 0, otherwise
 // return the result.
-const saturating_sub = (lhs: number, rhs: number): number => {
+function saturatingSub(lhs: number, rhs: number): number {
   if (lhs - rhs < 0) {
     return 0;
   } else {
     return lhs - rhs;
   }
-};
+}
 
 const TIME_WIDTH = 39;
 const TIME_HEIGHT = 5;
@@ -41,25 +36,25 @@ const RESTORE_SCREEN = new TextEncoder().encode("\x1b[?1049l");
 const GOTO_ORIGIN = new TextEncoder().encode("\x1b[1;1f");
 
 /** 运行程序。 */
-export const run = async (kind: Kind) => {
+export async function run(kind: Kind) {
   // 起始时间点
   const start = new Date().getTime();
   // 加载现有配置或新建配置
-  const config = await get_config(CONFIG_PATH).catch(async (_) => {
-    await make_config();
-    return config_example;
+  const config = await getConfig(CONFIG_PATH).catch(async (_) => {
+    await makeConfig();
+    return configExample;
   });
 
   // 时间数字渲染起始点
-  const timer_point = (rows: number, columns: number) => {
-    const start_x = Math.floor(saturating_sub(columns, TIME_WIDTH) / 2) + 1;
-    const start_y = Math.floor(saturating_sub(rows, TIME_HEIGHT) / 2) + 1;
+  const timerPoint = (rows: number, columns: number) => {
+    const startX = Math.floor(saturatingSub(columns, TIME_WIDTH) / 2) + 1;
+    const startY = Math.floor(saturatingSub(rows, TIME_HEIGHT) / 2) + 1;
 
-    return { start_x, start_y };
+    return { startX, startY };
   };
 
   let { columns, rows } = Deno.consoleSize();
-  let { start_x, start_y } = timer_point(rows, columns);
+  let { startX, startY } = timerPoint(rows, columns);
 
   let rain: string[] = [];
 
@@ -68,21 +63,21 @@ export const run = async (kind: Kind) => {
     const txt = (() => {
       // 分时钟和计时器
       if (kind === Kind.Clock) {
-        return generate_string_array(concat_nums(make_time(new Date())));
+        return generateStringArray(concatNums(makeTime(new Date())));
       } else {
         const now = new Date().getTime();
         const diff = new Date(now - start);
-        return generate_string_array(concat_nums(make_UTCtime(diff)));
+        return generateStringArray(concatNums(makeUTCTime(diff)));
       }
     })();
 
-    rain = call_rain(rain, columns, rows, config);
+    rain = callRain(rain, columns, rows, config);
 
     // 从原点绘制雨滴
     Deno.stdout.writeSync(GOTO_ORIGIN); //Go to home position
     for (let i = 1; i < rows; i++) {
-      if (i >= start_y && i < start_y + TIME_HEIGHT) {
-        const s = (" ".repeat(saturating_sub(start_x, 1)) + txt[i - start_y])
+      if (i >= startY && i < startY + TIME_HEIGHT) {
+        const s = (" ".repeat(saturatingSub(startX, 1)) + txt[i - startY])
           .padEnd(columns, " ")
           .slice(0, columns);
         console.log("%c" + s, "color: " + config.timecolor);
@@ -108,12 +103,12 @@ export const run = async (kind: Kind) => {
       const old_rows = rows;
 
       ({ columns, rows } = Deno.consoleSize());
-      ({ start_x, start_y } = timer_point(rows, columns));
+      ({ startX, startY } = timerPoint(rows, columns));
 
       // Fall new rain to keep previous raindrops surrounded the timer text.
-      const n = Math.floor(saturating_sub(rows, old_rows) / 2);
+      const n = Math.floor(saturatingSub(rows, old_rows) / 2);
       [...Array(n)].forEach((_) => {
-        rain = call_rain(rain, columns, rows, config);
+        rain = callRain(rain, columns, rows, config);
       });
 
       // 大小变更时重新绘制
@@ -122,14 +117,14 @@ export const run = async (kind: Kind) => {
   }
 
   // 定时重新绘制
-  const interval_rainID = setInterval(render, config.interval);
+  const intervalRainID = setInterval(render, config.interval);
 
   // 读取任意按键，清理退出
   const c = new Uint8Array(1);
   await Deno.stdin.read(c);
-  clearInterval(interval_rainID);
+  clearInterval(intervalRainID);
   Deno.stdout.writeSync(SHOW_CURSOR); //Show cursor
   Deno.stdout.writeSync(RESTORE_SCREEN); //Restore main screen
   Deno.stdin.setRaw(false); //Exit raw mode
   return;
-};
+}

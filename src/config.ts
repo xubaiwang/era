@@ -23,7 +23,7 @@ export type Config = {
 /**
  * 配置示例，默认配置。
  */
-export const config_example: Config = {
+export const configExample: Config = {
   interval: 100,
   frequency: 40,
   rain1: "│",
@@ -36,7 +36,7 @@ export const config_example: Config = {
  * 读取配置文件。
  * @param file_path - 文件位置
  */
-export const get_config = async (file_path: string): Promise<Config> => {
+export async function getConfig(file_path: string): Promise<Config> {
   const j = JSON.parse(await Deno.readTextFile(file_path));
   if (j.rain1 === "") {
     j.rain1 = " ";
@@ -45,16 +45,16 @@ export const get_config = async (file_path: string): Promise<Config> => {
     j.rain2 = " ";
   }
   return j;
-};
+}
 
 /**
  * 创建配置文件。
  */
-export const make_config = async () => {
+export async function makeConfig() {
   try {
     await Deno.stat(CONFIG_DIR);
   } catch (_error) {
     await Deno.mkdir(CONFIG_DIR, { recursive: true }).catch();
   }
-  await Deno.writeTextFile(CONFIG_PATH, JSON.stringify(config_example));
-};
+  await Deno.writeTextFile(CONFIG_PATH, JSON.stringify(configExample));
+}

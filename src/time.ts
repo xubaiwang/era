@@ -11,7 +11,7 @@ const ATOM2 = "■";
 /**
  * 生成数字列表。
  */
-export const generate_string_array = (num: number[][]): string[] => {
+export function generateStringArray(num: number[][]): string[] {
   const result: string[] = [];
   num.forEach((nums) => {
     let line = "";
@@ -27,19 +27,19 @@ export const generate_string_array = (num: number[][]): string[] => {
     result.push(line);
   });
   return result;
-};
+}
 
 /**
  * 拼接数字（时、分、秒）。
  */
-export const concat_nums = ([
+export function concatNums([
   num1,
   num2,
   num3,
   num4,
   num5,
   num6,
-]: number[][][]): number[][] => {
+]: number[][][]): number[][] {
   const result: number[][] = [];
   for (let i = 0; i < 5; i++) {
     const first = [...num1[i], 0];
@@ -57,12 +57,12 @@ export const concat_nums = ([
     result.push(line);
   }
   return result;
-};
+}
 
 /**
  * 时间转为位点阵。
  */
-export const make_time = (d: Date): number[][][] => {
+export function makeTime(d: Date): number[][][] {
   const hour = d.getHours();
   const min = d.getMinutes();
   const sec = d.getSeconds();
@@ -74,11 +74,11 @@ export const make_time = (d: Date): number[][][] => {
   const fifth = Math.floor(sec / 10);
   const sixth = sec - fifth * 10;
   return [first, second, third, fourth, fifth, sixth].map((item) =>
-    num_to_arrays(item)
+    numToArrays(item)
   );
-};
+}
 
-export const make_UTCtime = (d: Date): number[][][] => {
+export function makeUTCTime(d: Date): number[][][] {
   const hour = d.getUTCHours();
   const min = d.getUTCMinutes();
   const sec = d.getUTCSeconds();
@@ -89,14 +89,14 @@ export const make_UTCtime = (d: Date): number[][][] => {
   const fifth = Math.floor(sec / 10);
   const sixth = sec - fifth * 10;
   return [first, second, third, fourth, fifth, sixth].map((item) =>
-    num_to_arrays(item)
+    numToArrays(item)
   );
-};
+}
 
 /**
  * 位转换点阵。
  */
-const num_to_arrays = (num: number): number[][] => {
+function numToArrays(num: number): number[][] {
   switch (num) {
     case 1:
       return nums.ONE;
@@ -119,39 +119,39 @@ const num_to_arrays = (num: number): number[][] => {
     default:
       return nums.ZERO;
   }
-};
+}
 
 /**
  * 调用下雨。
  */
-export const call_rain = (
+export function callRain(
   rain: string[],
   column: number,
   row: number,
   config: Config,
-): string[] => {
+): string[] {
   if (rain.length >= row) {
     rain = rain.slice(0, row);
   }
-  let new_rain = "";
+  let newRain = "";
   for (let i = 0; i < column; i++) {
-    new_rain = new_rain + make_drop(getRandomInt(config.frequency), config);
+    newRain = newRain + makeDrop(getRandomInt(config.frequency), config);
   }
-  rain = [new_rain, ...rain];
+  rain = [newRain, ...rain];
   return rain;
-};
+}
 
 /**
  * 随机整数。
  */
-const getRandomInt = (max: number): number => {
+function getRandomInt(max: number): number {
   return Math.floor(Math.random() * max);
-};
+}
 
 /**
  * 创建雨滴。
  */
-const make_drop = (rand: number, config: Config): string => {
+function makeDrop(rand: number, config: Config): string {
   switch (rand) {
     case 0:
       return config.rain1;
@@ -160,4 +160,4 @@ const make_drop = (rand: number, config: Config): string => {
     default:
       return " ";
   }
-};
+}
