@@ -1,3 +1,7 @@
+/**
+ * @file 主要界面逻辑定义。
+ */
+
 import {
   config_example,
   CONFIG_PATH,
@@ -36,14 +40,17 @@ const SHOW_CURSOR = new TextEncoder().encode("\x1b[?25h");
 const RESTORE_SCREEN = new TextEncoder().encode("\x1b[?1049l");
 const GOTO_ORIGIN = new TextEncoder().encode("\x1b[1;1f");
 
+/** 运行程序。 */
 export const run = async (kind: Kind) => {
+  // 起始时间点
   const start = new Date().getTime();
+  // 加载现有配置或新建配置
   const config = await get_config(CONFIG_PATH).catch(async (_) => {
     await make_config();
     return config_example;
   });
 
-  // Return a timer origin point in a window.
+  // 时间数字渲染起始点
   const timer_point = (rows: number, columns: number) => {
     const start_x = Math.floor(saturating_sub(columns, TIME_WIDTH) / 2) + 1;
     const start_y = Math.floor(saturating_sub(rows, TIME_HEIGHT) / 2) + 1;
@@ -56,8 +63,10 @@ export const run = async (kind: Kind) => {
 
   let rain: string[] = [];
 
+  // 渲染函数
   const render = () => {
     const txt = (() => {
+      // 分时钟和计时器
       if (kind === Kind.Clock) {
         return generate_string_array(concat_nums(make_time(new Date())));
       } else {
@@ -69,16 +78,9 @@ export const run = async (kind: Kind) => {
 
     rain = call_rain(rain, columns, rows, config);
 
+    // 从原点绘制雨滴
     Deno.stdout.writeSync(GOTO_ORIGIN); //Go to home position
-
-    // Must not contains the last row because a terminal spawns scroll and the
-    // terminal window flickers when "console.log()", which prints newline, is
-    // called on the row. It makes sense if the row expresses the ground.
     for (let i = 1; i < rows; i++) {
-      // Must overwrite with spaces until line ends even if the line content's
-      // length is shorter than the terminal line length because some old
-      // contents may remain on a terminal grid when the terminal window size
-      // is changed.
       if (i >= start_y && i < start_y + TIME_HEIGHT) {
         const s = (" ".repeat(saturating_sub(start_x, 1)) + txt[i - start_y])
           .padEnd(columns, " ")
@@ -95,15 +97,12 @@ export const run = async (kind: Kind) => {
     }
   };
 
+  // 进入副屏
   Deno.stdin.setRaw(true); //Enter raw mode
   Deno.stdout.writeSync(NEW_SCREEN); //Enter new screen
   Deno.stdout.writeSync(HIDE_CURSOR); //Hide cursor
 
-  // "Deno.addSignalListener" is not yet implemented on Windows at least until
-  // Deno version 1.20.5.
-  //
-  // https://doc.deno.land/deno/stable/~/Deno.addSignalListener
-  // https://github.com/denoland/deno/issues/9995
+  // 自动适应窗口大小
   if (Deno.build.os !== "windows") {
     Deno.addSignalListener("SIGWINCH", () => {
       const old_rows = rows;
@@ -117,13 +116,15 @@ export const run = async (kind: Kind) => {
         rain = call_rain(rain, columns, rows, config);
       });
 
-      // Render contents right after the window size is changed.
+      // 大小变更时重新绘制
       render();
     });
   }
 
+  // 定时重新绘制
   const interval_rainID = setInterval(render, config.interval);
 
+  // 读取任意按键，清理退出
   const c = new Uint8Array(1);
   await Deno.stdin.read(c);
   clearInterval(interval_rainID);

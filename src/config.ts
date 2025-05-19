@@ -1,7 +1,16 @@
-const XDG_CONFIG_HOME = Deno.env.get("XDG_CONFIG_HOME") || Deno.env.get("HOME") + "/.config";
+/**
+ * @file 配置文件读取。
+ */
+
+// 以下是配置文件路径。
+const XDG_CONFIG_HOME = Deno.env.get("XDG_CONFIG_HOME") ||
+  Deno.env.get("HOME") + "/.config";
 const CONFIG_DIR = XDG_CONFIG_HOME + "/era";
 export const CONFIG_PATH = CONFIG_DIR + "/config.json";
 
+/**
+ * 配置类型定义。
+ */
 export type Config = {
   interval: number;
   frequency: number;
@@ -11,6 +20,9 @@ export type Config = {
   raincolor: string;
 };
 
+/**
+ * 配置示例，默认配置。
+ */
 export const config_example: Config = {
   interval: 100,
   frequency: 40,
@@ -20,6 +32,10 @@ export const config_example: Config = {
   raincolor: "#e0b0ff",
 };
 
+/**
+ * 读取配置文件。
+ * @param file_path - 文件位置
+ */
 export const get_config = async (file_path: string): Promise<Config> => {
   const j = JSON.parse(await Deno.readTextFile(file_path));
   if (j.rain1 === "") {
@@ -31,6 +47,9 @@ export const get_config = async (file_path: string): Promise<Config> => {
   return j;
 };
 
+/**
+ * 创建配置文件。
+ */
 export const make_config = async () => {
   try {
     await Deno.stat(CONFIG_DIR);

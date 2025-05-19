@@ -1,5 +1,6 @@
-import { run, Kind } from "./run.ts";
+import { Kind, run } from "./run.ts";
 
+// read arguments to decide run type
 const arg = Deno.args[0];
 if (arg === "-c") {
   await run(Kind.Counter);
