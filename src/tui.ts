@@ -28,4 +28,5 @@ export function restoreTUI() {
 export async function readKey() {
   const c = new Uint8Array(1);
   await Deno.stdin.read(c);
+  return new TextDecoder().decode(c);
 }

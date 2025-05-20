@@ -49,7 +49,10 @@ export async function run(kind: Kind) {
   );
 
   // 读取任意按键，清理退出
-  await readKey();
+  while (true) {
+    const key = await readKey();
+    if (key == "q") break;
+  }
   clearInterval(rainIntervalId);
   restoreTUI();
   return;
